@@ -38,7 +38,7 @@ fn main() {
 
 
         // Hardcode sessionID to 1 for now
-        let session_id = 2;
+        let session_id = 1;
 
         // create handle pointers for the original user token and the duplicated one
         let mut old_handle: HANDLE = Default::default();
