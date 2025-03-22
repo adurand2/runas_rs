@@ -5,16 +5,26 @@ use windows::Win32::System::Threading::{CreateProcessAsUserW, PROCESS_CREATION_F
 use windows::Win32::Security::{DuplicateTokenEx, SecurityImpersonation, TOKEN_ACCESS_MASK, TokenPrimary};
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::Foundation::HANDLE;
+use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_OK};
 use std::env;
 
-fn str_to_pwstr(s: &str) -> PWSTR {
-    // Convert &str to UTF-16 and append a null terminator
-    let mut utf16: Vec<u16> = s.encode_utf16().chain(std::iter::once(0)).collect();
+fn str_to_pwstr(input: &str) -> *mut u16 {
+    // Convert the &str (UTF-8) to a Vec<u16> (UTF-16)
+    let utf16: Vec<u16> = input.encode_utf16().collect();
 
-    // Get a mutable pointer to the buffer
-    PWSTR(utf16.as_mut_ptr())
+    // We need to append a null terminator to the end of the UTF-16 encoded string
+    let mut utf16_with_null = utf16;
+    utf16_with_null.push(0); // Null-terminate the string
+
+    // Convert the Vec<u16> into a raw pointer (equivalent to PWSTR)
+    let ptr = utf16_with_null.as_mut_ptr();
+
+    // Ensure the Vec doesn't get dropped before we're done using the pointer
+    std::mem::forget(utf16_with_null);
+
+    // Return the raw pointer as PWSTR (which is *mut u16)
+    ptr
 }
-
 
 fn main() {
 
@@ -26,7 +36,12 @@ fn main() {
     };
 
 
-    let fullarglist: String = args.iter().skip(1).cloned().collect::<Vec<String>>().join(" ");
+    let single_string: String = args.iter().skip(1).cloned().collect::<Vec<String>>().join(" ");
+
+    let fullarglist = format!("\"{}\"", single_string);
+
+    //println!("{}", fullarglist);
+
     unsafe{
 
         // Process creation flags are set to 0
@@ -34,11 +49,18 @@ fn main() {
         
 
         // Convert executable string to PWSTR
-        let lpcommandline = str_to_pwstr(&fullarglist);
+        let lpcommandline = PWSTR(str_to_pwstr(&fullarglist));
 
-
+    /*
+        MessageBoxW(
+            None,
+            lpcommandline,           // Message
+            lpcommandline,           // Title
+            MB_OK,           // OK button
+     );
+    */
         // Hardcode sessionID to 1 for now
-        let session_id = 1;
+        let session_id = 3;
 
         // create handle pointers for the original user token and the duplicated one
         let mut old_handle: HANDLE = Default::default();
@@ -71,7 +93,7 @@ fn main() {
 
         // Startup options to ensure that the program renders on the GUI
         let mut lpstartupinfo = STARTUPINFOW{
-            lpDesktop: str_to_pwstr("winsta0\\default"), // The default GUI desktop
+            lpDesktop: PWSTR(str_to_pwstr("winsta0\\default")), // The default GUI desktop
             dwFlags: STARTF_USESHOWWINDOW,
             wShowWindow: 1,
             ..Default::default()
@@ -80,7 +102,7 @@ fn main() {
         lpstartupinfo.cb = std::mem::size_of_val(&lpstartupinfo) as u32;
         
         // finally, create the process as the other user
-        let create_process_result = CreateProcessAsUserW(Some(*new_token),None , Some(lpcommandline), None, None, false, dwcreationflags, None, None, &lpstartupinfo, lpprocessinformation_ptr);
+        let create_process_result = CreateProcessAsUserW(Some(*new_token), None , Some(lpcommandline) , None, None, false, dwcreationflags, None, None, &lpstartupinfo, lpprocessinformation_ptr);
         if let Err(e) = create_process_result {
             println!("Error creating process: {}",e);
             println!("{}", GetLastError().to_hresult());
