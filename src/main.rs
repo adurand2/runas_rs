@@ -54,22 +54,22 @@ fn runProcess(lpcommandline: PWSTR, session_id: u32 ){
    
            // find the session ID of current user
            //let session_id = WTSGetActiveConsoleSessionId();
-           println!("running in session {}", session_id);
+           //println!("running in session {}", session_id);
    
    
            // Try to retrieve the user token for the specified session
            let qut_result = WTSQueryUserToken(session_id, old_token);
            if let Err(e) = qut_result {
    
-               println!("Error getting user token: {}",e);
-               println!("{}", GetLastError().to_hresult());
+               println!("Error getting user token. You probably need to escalate to system: {}",e);
+               //println!("{}", GetLastError().to_hresult());
                return;
            }
            
            // Duplicate the token
            let dte_result = DuplicateTokenEx(*old_token,TOKEN_ACCESS_MASK(0), None, SecurityImpersonation, TokenPrimary, new_token);
            if let Err(e) = dte_result {
-               println!("Error duplicating token: {}",e);
+               //println!("Error duplicating token: {}",e);
                return;
            }
    
@@ -90,12 +90,12 @@ fn runProcess(lpcommandline: PWSTR, session_id: u32 ){
            // finally, create the process as the other user
            let create_process_result = CreateProcessAsUserW(Some(*new_token), None , Some(lpcommandline) , None, None, false, dwcreationflags, None, None, &lpstartupinfo, lpprocessinformation_ptr);
            if let Err(e) = create_process_result {
-               println!("Error creating process: {}",e);
-               println!("{}", GetLastError().to_hresult());
+               //println!("Error creating process: {}",e);
+               //println!("{}", GetLastError().to_hresult());
                return;
            }
    
-           println!("congrats on your new process!");
+           println!("Process Started!");
            return;
        }
 }
