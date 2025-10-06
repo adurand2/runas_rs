@@ -1,4 +1,3 @@
-
 use windows::core::PWSTR;
 use windows::Win32::System::RemoteDesktop::WTSQueryUserToken;
 use windows::Win32::System::Threading::{CreateProcessAsUserW, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTF_USESHOWWINDOW, STARTUPINFOW};
@@ -105,26 +104,32 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
         
-        println!("give me the exe path");
+        println!("give me the session (0 means all) and command to run");
         return;
     };
 
+    let session_id: u32 = args[1].parse().unwrap_or(0);
 
-    let single_string: String = args.iter().skip(1).cloned().collect::<Vec<String>>().join(" ");
+    // horrifying code to join all args apart from the first into a single string
+    let exePath: String = args.iter().skip(2).cloned().collect::<Vec<String>>().join(" ");
 
-    let fullarglist = format!("\"{}\"", single_string);
+    let exePath = format!("\"{}\"", exePath);
     //println!("{}", fullarglist);
 
 
     unsafe{
         
-        // Hardcode sessionID to 1 for now
-        let session_id = 0;
-        
         // Convert executable string to PWSTR
-        let lpcommandline = PWSTR(str_to_pwstr(&fullarglist));
+        let lpcommandline = PWSTR(str_to_pwstr(&exePath));
 
-        // run on a ton of session ids
+        // if session id is not 0, just run on that session id
+        if session_id != 0 {
+            runProcess(lpcommandline, session_id);
+            return;
+        }
+
+        // otherwise go crazy
+        let session_id = 0;
         runProcess(lpcommandline, session_id);
 
         let session_id = 1;
